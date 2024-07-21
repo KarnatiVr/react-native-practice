@@ -9,6 +9,11 @@ import {
   StatusBar,
 } from "react-native";
 import { FETCH_CLAIMS } from "./graphql/graphql.queries";
+import { client } from "./graphql/graphql.module";
+import {
+  ViewPortDetector,
+  ViewPortDetectorProvider,
+} from "react-native-viewport-detector";
 
 const DATA = [
   {
@@ -60,34 +65,58 @@ const DATA = [
 
 type claimProps = { title: string; author: string };
 const Item = ({ claim }: any) => (
-  <View style={styles.item}>
-    <Text>{claim.author}</Text>
-    <Text style={styles.title}>{claim.title}</Text>
-  </View>
+  <ViewPortDetector onChange={() => console.log("changed")} percentHeight={0.7}>
+    <View style={styles.item}>
+      <Text>{claim.circle.title}</Text>
+      <Text style={styles.title}>{claim.thesis}</Text>
+    </View>
+  </ViewPortDetector>
 );
 
 const Feed = () => {
-  const fetchClaims = async () => {
-    const { data, error, loading } = useQuery(FETCH_CLAIMS, {
+  const [claims, setClaims] = React.useState<any[]>([]);
+  const fetchClaims = async (offset: number = 0, limit: number = 10) => {
+    // const { data, error, loading } = useQuery(FETCH_CLAIMS, {
+    //   variables: {
+    //     searchField: "",
+    //     offset: 0,
+    //     limit: 10,
+    //   },
+    // });
+    const { data } = await client.query({
+      query: FETCH_CLAIMS,
       variables: {
         searchField: "",
-        offset: 0,
-        limit: 10,
+        offset: offset,
+        limit: limit,
       },
     });
-    console.log("data", data, error);
+    const newClaims = [...claims, ...data.claims];
+    console.log("newClaims", newClaims);
+    setClaims(newClaims);
+    console.log("data", data.claims);
   };
+  useEffect(() => {
+    fetchClaims();
 
-  console.log("hello from react native");
-  fetchClaims();
+    console.log("hello from react native");
+  }, [client]);
+
+  const handleLoadMore = () => {
+    fetchClaims(claims.length, 10);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <FlatList
-        data={DATA}
-        renderItem={({ item }) => <Item claim={item} />}
-        keyExtractor={(item) => item.id}
-      />
+      <ViewPortDetectorProvider flex={1}>
+        <FlatList
+          data={claims}
+          renderItem={({ item }) => <Item claim={item} />}
+          keyExtractor={(item) => item.id}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+        />
+      </ViewPortDetectorProvider>
     </SafeAreaView>
   );
 };
